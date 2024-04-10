@@ -27,8 +27,11 @@ const scene = new THREE.Scene();
 // Loaders
 const textureLoader = new THREE.TextureLoader();
 const smokeNoise = textureLoader.load("./perlin.png");
+
 smokeNoise.wrapS = THREE.RepeatWrapping;
 smokeNoise.wrapT = THREE.RepeatWrapping;
+
+const simpleShadow = textureLoader.load("./simpleShadow.jpg");
 const gltfLoader = new GLTFLoader();
 
 /**
@@ -98,7 +101,20 @@ gltfLoader.load("./marshmallow4.glb", (gltf) => {
     marshmallow.position.set(0, 4.0, 0);
     marshmallow.scale.setScalar(size);
 
+    //Shadow
+    const shadow = new THREE.Mesh(
+        new THREE.PlaneGeometry(size * 2.0, size * 2.0),
+        new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            alphaMap: simpleShadow,
+            depthWrite: false,
+        })
+    );
+    shadow.rotation.x = -Math.PI * 0.5;
+
     const numCopies = 20;
+
     for (let i = 0; i < numCopies; i++) {
         const marshmallowCopy = marshmallow.clone();
 
@@ -114,6 +130,13 @@ gltfLoader.load("./marshmallow4.glb", (gltf) => {
         marshmallowCopy.rotation.set(rotationX, rotationY, rotationZ);
 
         scene.add(marshmallowCopy); // Добавление копии модели в сцену
+
+        //Shadow
+        let shadowCopy = shadow.clone();
+        shadowCopy.position.set(positionX + 0.14, 0.01 + i * 0.001, positionZ - 0.14);
+        shadowCopy.material.opacity = Math.min(1, Math.max(0, 1 - positionY));
+
+        scene.add(shadowCopy);
 
         //Physics
         const shape = new CANNON.Cylinder(size, size, 0.35, 16);
@@ -133,6 +156,7 @@ gltfLoader.load("./marshmallow4.glb", (gltf) => {
         marshmallows.push({
             mesh: marshmallowCopy,
             body,
+            shadow: shadowCopy,
         });
     }
 });
@@ -267,6 +291,9 @@ const tick = () => {
         for (const object of marshmallows) {
             object.mesh.position.copy(object.body.position);
             object.mesh.quaternion.copy(object.body.quaternion);
+            object.shadow.position.x = object.body.position.x + 0.14;
+            object.shadow.position.z = object.body.position.z - 0.14;
+            object.shadow.material.opacity = Math.min(1, Math.max(0, 1 - object.body.position.y));
         }
     }
 
